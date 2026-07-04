@@ -92,16 +92,17 @@
             margin-left: 0; margin-bottom: 0.85em;
         }
 
+        /* Space for the copy/delete row is always reserved (no height/max-height
+           transition) so revealing it never shifts other messages; only opacity
+           and pointer-events toggle. */
         .chat-msg-actions {
             opacity: 0;
-            max-height: 0;
-            overflow: hidden;
-            transition: opacity 0.12s ease, max-height 0.18s ease;
             pointer-events: none;
+            transition: opacity 0.12s ease;
         }
+        .chat-msg-wrap:hover .chat-msg-actions,
         .chat-msg-wrap:focus-within .chat-msg-actions {
             opacity: 1;
-            max-height: 3rem;
             pointer-events: auto;
         }
         
@@ -184,7 +185,7 @@
             </h2>
 
             <p class="text-xs sm:text-sm text-zinc-400 mb-3 sm:mb-4 leading-snug sm:leading-relaxed shrink-0">
-                Local AI in your browser — chat or ask about your documents (PDF, TXT, CSV).
+                Local AI in your browser — chat or ask about your documents (PDF, DOCX, TXT, CSV, and more).
                 <strong class="text-zinc-300">Files stay on device.</strong>
             </p>
 
@@ -235,14 +236,37 @@
                     <strong class="text-zinc-300">BrowserLM</strong> is a private, in-browser AI client: chat and RAG with no custom backend. Models run locally in your tab via Transformers.js (ONNX, WebGPU when available, WASM fallback).
                 </p>
                 <p>
-                    Upload <strong class="text-zinc-300">TXT, Markdown, CSV, JSON, or PDF</strong> and ask questions. Chunks and embeddings are stored in <strong class="text-zinc-300">IndexedDB</strong> on your device — your files are not sent to a server.
+                    Upload <strong class="text-zinc-300">TXT, Markdown, CSV, TSV, JSON, XML, YAML, INI, log, HTML, PDF, DOC, DOCX, RTF, or EPUB</strong> and ask questions. Chunks and embeddings are stored in <strong class="text-zinc-300">IndexedDB</strong> on your device — your files are not sent to a server. Scanned/image-only PDFs have no extractable text and can't be indexed (BrowserLM doesn't do OCR); legacy .doc extraction is best-effort.
                 </p>
                 <p class="text-xs text-zinc-500">
                     Serve the app over <strong class="text-zinc-400">http://</strong> (not <code class="text-zinc-500">file://</code>) so ES modules and the model cache work.
                 </p>
                 <p>
-                    <a href="https://github.com/nfyaka/BrowserLM" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline underline-offset-2">Project on GitHub</a>
+                    <a href="https://github.com/lab-kz/BrowserLM" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline underline-offset-2">Project on GitHub</a>
                 </p>
+            </div>
+        </div>
+    </div>
+
+    <div id="file-preview-modal" class="hidden fixed inset-0 z-[88] flex items-center justify-center bg-black/80 backdrop-blur-md p-4" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="file-preview-title">
+        <div id="file-preview-panel" class="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-3xl w-full h-[85dvh] shadow-2xl relative flex flex-col overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-blue-500"></div>
+            <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800 shrink-0">
+                <h2 id="file-preview-title" class="text-sm font-semibold text-white flex items-center gap-2 min-w-0 truncate">
+                    <i data-lucide="file-text" class="w-4 h-4 text-blue-400 shrink-0"></i>
+                    <span id="file-preview-name" class="truncate">File preview</span>
+                </h2>
+                <div class="flex items-center gap-1 shrink-0">
+                    <button type="button" id="btn-download-previewed-file" class="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-800 transition-colors" title="Download">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" id="btn-close-file-preview" class="p-1.5 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-800 transition-colors" aria-label="Close">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 min-h-0 bg-zinc-950">
+                <iframe id="file-preview-frame" class="w-full h-full border-0 bg-white" title="File preview" sandbox=""></iframe>
             </div>
         </div>
     </div>
@@ -253,7 +277,7 @@
                 <i data-lucide="upload-cloud" class="w-16 h-16 animate-bounce"></i>
             </div>
             <h2 class="text-2xl font-semibold text-white">Drop files to upload</h2>
-            <p class="text-zinc-400">Text, Markdown, CSV, JSON, PDF</p>
+            <p class="text-zinc-400">TXT, Markdown, CSV, TSV, JSON, XML, YAML, INI, log, HTML, PDF, DOC, DOCX, RTF, EPUB</p>
         </div>
     </div>
 
@@ -285,11 +309,11 @@
                 <label id="label-file-upload" class="relative overflow-hidden flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 cursor-pointer text-sm font-medium transition-all active:scale-[0.98]">
                     <i data-lucide="file-plus" class="w-4 h-4 text-blue-400"></i>
                     Add documents
-                    <input id="file-input" type="file" multiple class="hidden" disabled accept=".txt,.md,.csv,.json,.pdf,text/plain" />
+                    <input id="file-input" type="file" multiple class="hidden" disabled accept=".txt,.md,.markdown,.csv,.tsv,.json,.xml,.yml,.yaml,.ini,.log,.html,.htm,.pdf,.doc,.docx,.rtf,.epub,text/plain" />
                 </label>
             </div>
 
-            <div class="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-y-contain p-3" id="sources-list"></div>
+            <div class="flex-1 min-h-0 min-w-0 overflow-y-auto overscroll-y-contain p-3 space-y-2" id="sources-list"></div>
 
             <div id="sidebar-settings" class="shrink-0 flex flex-col min-h-0 max-h-[min(46vh,380px)] overflow-y-auto overscroll-y-contain border-t border-zinc-800 bg-zinc-950/50 p-4">
                 <div class="flex items-center justify-between mb-1">
@@ -304,9 +328,32 @@
                 </div>
                 <select id="select-emb-model" class="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-zinc-200 text-xs focus:ring-2 focus:ring-blue-500/50 outline-none transition-all cursor-pointer">
                 </select>
-                
-                <div class="mt-4 border-t border-zinc-800">
+
+                <div class="flex items-center justify-between mb-1 mt-3">
+                    <label for="system-prompt-input" class="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">System prompt</label>
+                    <button type="button" id="btn-reset-system-prompt" class="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">Reset</button>
+                </div>
+                <textarea id="system-prompt-input" rows="3" placeholder="Default assistant behavior" class="w-full shrink-0 min-h-[4.5rem] resize-y bg-zinc-900 border border-zinc-700 rounded-lg px-2 py-2 text-zinc-200 text-xs leading-relaxed focus:ring-2 focus:ring-blue-500/50 outline-none transition-all placeholder:text-zinc-500"></textarea>
+                <p class="text-[10px] text-zinc-500 mt-1">Overrides how the model answers. Leave empty for the default behavior.</p>
+
+                <div class="mt-4 pt-4 border-t border-zinc-800">
                     <div id="cache-models-panel" class="text-xs"></div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-zinc-800">
+                    <label class="block text-[11px] font-medium text-zinc-500 uppercase tracking-wider mb-2">Backup</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" id="btn-download-all" class="py-2 px-3 rounded-lg border border-zinc-700 text-zinc-200 text-xs hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1.5">
+                            <i data-lucide="archive" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>
+                            Download all
+                        </button>
+                        <button type="button" id="btn-import-all" class="py-2 px-3 rounded-lg border border-zinc-700 text-zinc-200 text-xs hover:bg-zinc-800 transition-colors flex items-center justify-center gap-1.5">
+                            <i data-lucide="upload" class="w-3.5 h-3.5 text-blue-400 shrink-0"></i>
+                            Import
+                            <input id="import-all-input" type="file" accept=".zip,application/zip" class="hidden" />
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-zinc-500 mt-1.5">Archives chat, documents, system prompt, and model choice into one .zip. Import merges a backup into your current data.</p>
                 </div>
 
                 <button type="button" id="btn-clear-sources" class="w-full py-2 px-3 rounded-lg border border-red-900/30 text-red-400 text-xs hover:bg-red-950/50 transition-colors flex items-center justify-center gap-2 mt-4">
@@ -327,9 +374,14 @@
                         <span id="status-text" class="text-sm font-medium text-zinc-300">Waiting to start...</span>
                     </div>
                 </div>
-                <button type="button" id="btn-clear-chat" class="relative z-[71] p-2 text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 transition-colors" title="Clear chat">
-                    <i data-lucide="eraser" class="w-4 h-4"></i>
-                </button>
+                <div class="flex items-center gap-0.5">
+                    <button type="button" id="btn-download-chat" class="relative z-[71] p-2 text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 transition-colors" title="Download chat">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" id="btn-clear-chat" class="relative z-[71] p-2 text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-zinc-800 transition-colors" title="Clear chat">
+                        <i data-lucide="eraser" class="w-4 h-4"></i>
+                    </button>
+                </div>
             </header>
 
             <div id="progress-wrap" class="hidden shrink-0 border-b border-zinc-800 bg-zinc-900/50 px-3 shadow-inner h-[100px] md:h-[80px]  flex flex-col flex-nowrap justify-center">
@@ -379,10 +431,10 @@
                         </button>
                     </form>
                     <div class="text-center mt-2 md:mt-3 space-y-1">
-                        <p class="text-[10px] text-zinc-600">
-                            AI can make mistakes. 
+                        <p class="text-[10px] text-zinc-500">
+                            AI can make mistakes.
                             <span class="hidden md:inline">Verify facts against your original documents.</span>
-                            <a href="https://github.com/nfyaka/BrowserLM" target="_blank" rel="noopener noreferrer" class="text-zinc-600 hover:text-zinc-400 transition-colors underline underline-offset-2">Project on GitHub</a>
+                            <a href="https://github.com/lab-kz/BrowserLM" target="_blank" rel="noopener noreferrer" class="text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2">Project on GitHub</a>
                         </p>
                     </div>
                 </div>
@@ -428,6 +480,353 @@
         }
 
         const escHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+
+        const MIME_BY_EXT = {
+            pdf: 'application/pdf',
+            doc: 'application/msword',
+            docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            rtf: 'application/rtf',
+            epub: 'application/epub+zip',
+            json: 'application/json',
+            csv: 'text/csv',
+            tsv: 'text/tab-separated-values',
+            md: 'text/markdown',
+            markdown: 'text/markdown',
+            txt: 'text/plain',
+            log: 'text/plain',
+            ini: 'text/plain',
+            html: 'text/html',
+            htm: 'text/html',
+            xml: 'application/xml',
+            yml: 'application/x-yaml',
+            yaml: 'application/x-yaml'
+        };
+        const getFileExtension = (filename) => String(filename).split('.').pop().toLowerCase();
+        const guessMimeType = (filename) => MIME_BY_EXT[getFileExtension(filename)] || 'text/plain';
+        const formatBytes = (n) => {
+            const b = Number(n) || 0;
+            if (b < 1024) return `${b} B`;
+            if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+            return `${(b / 1024 / 1024).toFixed(1)} MB`;
+        };
+
+        // Extensions accepted into the knowledge base and how each is turned into plain text for indexing.
+        const FILE_KIND_BY_EXT = {
+            txt: 'text', md: 'text', markdown: 'text', csv: 'text', tsv: 'text',
+            json: 'text', xml: 'text', log: 'text', yml: 'text', yaml: 'text', ini: 'text',
+            html: 'html', htm: 'html',
+            pdf: 'pdf',
+            docx: 'docx',
+            doc: 'doc',
+            rtf: 'rtf',
+            epub: 'epub'
+        };
+        const SUPPORTED_EXTENSIONS_LABEL = 'TXT, Markdown, CSV, TSV, JSON, XML, YAML, INI, log, HTML, PDF, DOC, DOCX, RTF, EPUB';
+        const FILE_INPUT_ACCEPT = Object.keys(FILE_KIND_BY_EXT).map((e) => `.${e}`).join(',');
+        const MAX_FILE_SIZE_MB = 30;
+
+        const classifyFileForUpload = (filename) => FILE_KIND_BY_EXT[getFileExtension(filename)] || null;
+        const resolveFileKindForDisplay = (filename) => FILE_KIND_BY_EXT[getFileExtension(filename)] || 'text';
+
+        class FileProcessError extends Error {
+            constructor(code, detail = '') {
+                super(code);
+                this.name = 'FileProcessError';
+                this.code = code;
+                this.detail = detail;
+            }
+        }
+
+        const formatFileProcessError = (e) => {
+            if (e?.name === 'FileProcessError') {
+                switch (e.code) {
+                    case 'UNSUPPORTED_TYPE':
+                        return `unsupported file type ".${e.detail}". Supported formats: ${SUPPORTED_EXTENSIONS_LABEL}.`;
+                    case 'FILE_TOO_LARGE':
+                        return `file is ${e.detail}, over the ${MAX_FILE_SIZE_MB} MB limit for in-browser indexing. Try a smaller file.`;
+                    case 'EMPTY_TEXT':
+                        return 'no readable text could be extracted (fewer than 40 characters). The file may be empty, corrupted, or contain only formatting.';
+                    case 'PDF_NO_TEXT':
+                        return "no extractable text layer was found in this PDF — it looks like a scanned or image-only document. BrowserLM doesn't perform OCR, so text inside images can't be indexed. Run the PDF through an OCR tool first, or upload a text-based PDF instead.";
+                    case 'PDF_ENCRYPTED':
+                        return "this PDF is password-protected and can't be opened here.";
+                    case 'PDF_CORRUPTED':
+                        return "this PDF couldn't be parsed — it may be corrupted or use an unsupported PDF format.";
+                    case 'PDF_LIB_LOAD_FAILED':
+                        return 'the PDF reader library failed to load. Check your internet connection and try again.';
+                    case 'DOCX_LIB_LOAD_FAILED':
+                        return 'the DOCX reader library failed to load. Check your internet connection and try again.';
+                    case 'DOCX_PARSE_FAILED':
+                        return "this DOCX file couldn't be parsed — it may be corrupted or saved in an unsupported format.";
+                    case 'DOC_LIB_LOAD_FAILED':
+                        return 'the DOC reader library failed to load. Check your internet connection and try again.';
+                    case 'DOC_PARSE_FAILED':
+                        return "this .doc file couldn't be read — it may be corrupted, password-protected, or not a real Word binary file.";
+                    case 'DOC_NO_TEXT':
+                        return "no readable text could be found in this .doc file. Legacy .doc extraction is best-effort — if this keeps failing, try re-saving the file as .docx or PDF.";
+                    case 'EPUB_LIB_LOAD_FAILED':
+                        return 'the EPUB reader library failed to load. Check your internet connection and try again.';
+                    case 'EPUB_PARSE_FAILED':
+                        return "this EPUB file couldn't be opened — it may be corrupted or not a valid .epub archive.";
+                    case 'EPUB_NO_CONTENT':
+                        return 'no readable chapters were found in this EPUB file.';
+                    case 'READ_FAILED':
+                        return "the file couldn't be read from disk — it may have been moved, deleted, or is unreadable.";
+                    default:
+                        return e.detail || 'an unknown error occurred while reading this file.';
+                }
+            }
+            return e?.message || 'an unknown error occurred while reading this file.';
+        };
+
+        const readFileAsText = (file) => new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = () => reject(new FileProcessError('READ_FAILED'));
+            r.readAsText(file);
+        });
+
+        const HTML_BLOCK_TAGS = 'p,div,br,h1,h2,h3,h4,h5,h6,li,tr,blockquote,section,article,header,footer';
+        // Shared cleanup pass for every extractor: drop replacement chars and control-byte
+        // noise from lossy binary decodes, then collapse the resulting whitespace mess.
+        const cleanExtractedText = (text) => String(text)
+            .replace(/\uFFFD/g, '')
+            .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+            .replace(/[ \t]{3,}/g, '  ')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+
+        const extractHtmlText = (rawHtml) => {
+            const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
+            doc.querySelectorAll('script, style').forEach((el) => el.remove());
+            doc.body?.querySelectorAll(HTML_BLOCK_TAGS).forEach((el) => el.insertAdjacentText('afterend', '\n'));
+            return (doc.body?.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+        };
+
+        let mammothLibPromise = null;
+        const loadMammoth = () => {
+            if (!mammothLibPromise) {
+                mammothLibPromise = import("https://esm.sh/mammoth@1.8.0").then((ns) => ns.default || ns);
+            }
+            return mammothLibPromise;
+        };
+
+        let fflateLibPromise = null;
+        const loadFflate = () => {
+            if (!fflateLibPromise) {
+                fflateLibPromise = import("https://esm.sh/fflate@0.8.2");
+            }
+            return fflateLibPromise;
+        };
+
+        const extractDocxText = async (file) => {
+            let mammoth;
+            try {
+                mammoth = await loadMammoth();
+            } catch (_) {
+                throw new FileProcessError('DOCX_LIB_LOAD_FAILED');
+            }
+            const buf = await file.arrayBuffer();
+            try {
+                const result = await mammoth.extractRawText({ arrayBuffer: buf });
+                return result.value || '';
+            } catch (_) {
+                throw new FileProcessError('DOCX_PARSE_FAILED');
+            }
+        };
+
+        // RTF is plain ASCII markup, not binary, so this can be stripped reliably:
+        // walk the brace-delimited group tree, drop entire "destination" groups that
+        // hold non-visible payloads (embedded pictures/objects, font/color tables, ...),
+        // and turn the remaining control words into their visible-text equivalents.
+        const RTF_SKIP_DESTINATIONS = new Set([
+            'pict', 'object', 'objdata', 'fonttbl', 'filetbl', 'colortbl', 'stylesheet',
+            'listtable', 'listoverridetable', 'rsidtbl', 'generator', 'info', 'header',
+            'footer', 'footnote', 'annotation', 'field', 'fldinst', 'themedata',
+            'colorschememapping', 'datastore', 'xmlnstbl', 'nonshppict', 'shprslt'
+        ]);
+
+        const extractRtfText = (rtf) => {
+            let out = '';
+            let i = 0;
+            const n = rtf.length;
+            const groupSkipDepth = [];
+            let depth = 0;
+
+            while (i < n) {
+                const ch = rtf[i];
+
+                if (ch === '{') {
+                    depth++;
+                    i++;
+                    let j = i;
+                    if (rtf[j] === '\\') {
+                        let k = j + 1;
+                        if (rtf[k] === '*') { k++; groupSkipDepth.push(depth); continue; }
+                        const wordStart = k;
+                        while (k < n && /[a-zA-Z]/.test(rtf[k])) k++;
+                        if (RTF_SKIP_DESTINATIONS.has(rtf.slice(wordStart, k))) groupSkipDepth.push(depth);
+                    }
+                    continue;
+                }
+
+                if (ch === '}') {
+                    if (groupSkipDepth[groupSkipDepth.length - 1] === depth) groupSkipDepth.pop();
+                    depth--;
+                    i++;
+                    continue;
+                }
+
+                if (groupSkipDepth.length) { i++; continue; }
+
+                if (ch === '\\') {
+                    i++;
+                    const next = rtf[i];
+                    if (next === '\\' || next === '{' || next === '}') { out += next; i++; continue; }
+                    if (next === "'") {
+                        const code = parseInt(rtf.substr(i + 1, 2), 16);
+                        i += 3;
+                        if (!Number.isNaN(code)) out += String.fromCharCode(code);
+                        continue;
+                    }
+                    const wordStart = i;
+                    while (i < n && /[a-zA-Z]/.test(rtf[i])) i++;
+                    const word = rtf.slice(wordStart, i);
+                    const numStart = i;
+                    if (rtf[i] === '-') i++;
+                    while (i < n && /[0-9]/.test(rtf[i])) i++;
+                    if (rtf[i] === ' ') i++;
+                    if (word === 'par' || word === 'line') out += '\n';
+                    else if (word === 'tab') out += '\t';
+                    else if (word === 'u') {
+                        const code = parseInt(rtf.slice(numStart, i).trim(), 10);
+                        if (!Number.isNaN(code)) out += String.fromCharCode(code < 0 ? code + 65536 : code);
+                        if (/[A-Za-z0-9?]/.test(rtf[i] || '')) i++;
+                    }
+                    continue;
+                }
+
+                out += ch;
+                i++;
+            }
+
+            return cleanExtractedText(out);
+        };
+
+        let cfbLibPromise = null;
+        const loadCfb = () => {
+            if (!cfbLibPromise) {
+                cfbLibPromise = import("https://esm.sh/cfb@1.2.2").then((ns) => ns.default || ns);
+            }
+            return cfbLibPromise;
+        };
+
+        // Legacy .doc is a binary OLE compound-file format; the paragraph text sits in
+        // the "WordDocument" stream, mostly as UTF-16LE. Rather than implementing the
+        // full (and only partially documented) FIB/CHPX layout parser, this scans that
+        // stream for runs of printable UTF-16LE characters, which recovers the visible
+        // text of simple documents reasonably well but is inherently best-effort: it can
+        // miss structure (tables, headers) and occasionally cut/merge words at run
+        // boundaries. cleanExtractedText() takes care of the leftover binary noise.
+        const heuristicExtractDocText = (bytes) => {
+            const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+            const out = [];
+            let run = [];
+            const flushRun = () => {
+                if (run.length >= 4) out.push(run.join(''));
+                run = [];
+            };
+            for (let i = 0; i + 1 < bytes.length; i += 2) {
+                const code = dv.getUint16(i, true);
+                if (code === 0x0D || code === 0x0A) {
+                    flushRun();
+                    out.push('\n');
+                    continue;
+                }
+                const printable = code === 0x09 || (code >= 0x20 && code <= 0x24FF && code !== 0x2028 && code !== 0x2029);
+                if (printable) {
+                    run.push(String.fromCharCode(code));
+                } else {
+                    flushRun();
+                }
+            }
+            flushRun();
+            return cleanExtractedText(out.join(''));
+        };
+
+        const extractDocText = async (file) => {
+            let CFB;
+            try {
+                CFB = await loadCfb();
+            } catch (_) {
+                throw new FileProcessError('DOC_LIB_LOAD_FAILED');
+            }
+            const buf = await file.arrayBuffer();
+            let container;
+            try {
+                container = CFB.read(new Uint8Array(buf), { type: 'array' });
+            } catch (_) {
+                throw new FileProcessError('DOC_PARSE_FAILED');
+            }
+            const streamIndex = (container.FullPaths || []).findIndex((p) => /(^|\/)WordDocument$/i.test(p));
+            const entry = streamIndex >= 0 ? container.FileIndex[streamIndex] : null;
+            if (!entry || !entry.content) throw new FileProcessError('DOC_PARSE_FAILED');
+            const bytes = entry.content instanceof Uint8Array ? entry.content : new Uint8Array(entry.content);
+            const text = heuristicExtractDocText(bytes);
+            if (!text.trim()) throw new FileProcessError('DOC_NO_TEXT');
+            return text;
+        };
+
+        const extractEpubText = async (file) => {
+            let fflate;
+            try {
+                fflate = await loadFflate();
+            } catch (_) {
+                throw new FileProcessError('EPUB_LIB_LOAD_FAILED');
+            }
+            const { unzipSync, strFromU8 } = fflate;
+
+            let entries;
+            try {
+                entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+            } catch (_) {
+                throw new FileProcessError('EPUB_PARSE_FAILED');
+            }
+
+            const paths = Object.keys(entries).filter((p) => !p.endsWith('/'));
+            const readText = (p) => strFromU8(entries[p]);
+            let chapterPaths = null;
+
+            try {
+                const containerPath = paths.find((p) => p.toLowerCase() === 'meta-inf/container.xml');
+                const opfPath = containerPath
+                    ? new DOMParser().parseFromString(readText(containerPath), 'application/xml')
+                        .querySelector('rootfile')?.getAttribute('full-path')
+                    : null;
+                if (opfPath && entries[opfPath]) {
+                    const opfDoc = new DOMParser().parseFromString(readText(opfPath), 'application/xml');
+                    const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+                    const manifest = {};
+                    opfDoc.querySelectorAll('manifest > item').forEach((item) => {
+                        manifest[item.getAttribute('id')] = item.getAttribute('href');
+                    });
+                    chapterPaths = Array.from(opfDoc.querySelectorAll('spine > itemref'))
+                        .map((r) => manifest[r.getAttribute('idref')])
+                        .filter(Boolean)
+                        .map((href) => decodeURIComponent(opfDir + href))
+                        .filter((p) => entries[p]);
+                }
+            } catch (_) {
+                chapterPaths = null;
+            }
+
+            if (!chapterPaths || !chapterPaths.length) {
+                chapterPaths = paths.filter((p) => /\.x?html?$/i.test(p)).sort();
+            }
+            if (!chapterPaths.length) throw new FileProcessError('EPUB_NO_CONTENT');
+
+            return cleanExtractedText(chapterPaths.map((p) => extractHtmlText(readText(p))).join('\n\n'));
+        };
 
         const sanitizeChatHtml = (dirty) => {
             if (DOMPurify?.sanitize) return DOMPurify.sanitize(dirty);
@@ -658,12 +1057,18 @@
         const LS_EMB_KEY = 'browserlm_selected_emb';
         const LS_MODEL_KEY_LEGACY = 'chatrag_selected_model';
         const LS_EMB_KEY_LEGACY = 'chatrag_selected_emb';
+        const LS_SYSTEM_PROMPT_KEY = 'browserlm_system_prompt';
 
         let savedGen = localStorage.getItem(LS_MODEL_KEY) || localStorage.getItem(LS_MODEL_KEY_LEGACY);
         if (!GEN_MODELS[savedGen]) savedGen = "lfm2_350m";
 
         let savedEmb = localStorage.getItem(LS_EMB_KEY) || localStorage.getItem(LS_EMB_KEY_LEGACY);
         if (!EMB_MODELS[savedEmb]) savedEmb = "multilingual";
+
+        const savedSystemPrompt = localStorage.getItem(LS_SYSTEM_PROMPT_KEY) || "";
+
+        const DEFAULT_SYSTEM_PROMPT_RAG = "You are a helpful assistant. Answer in English based only on the provided CONTEXT. If the information is not in the context, say so clearly.";
+        const DEFAULT_SYSTEM_PROMPT_PLAIN = "You are a helpful assistant. Answer in English, clearly and to the point. If you are unsure about facts or lack context, say so. Do not invent specific citations, laws, or exact dates unless they appeared in the user's message.";
 
         const State = {
             embedder: null,
@@ -681,7 +1086,8 @@
             genAbortController: null,
             stopGenerationRequested: false,
             modelLoadGeneration: 0,
-            modelLoadAbortController: null
+            modelLoadAbortController: null,
+            customSystemPrompt: savedSystemPrompt
         };
 
         const DOM = {
@@ -723,8 +1129,22 @@
             infoModal: document.getElementById('info-modal'),
             infoModalPanel: document.getElementById('info-modal-panel'),
             btnInfo: document.getElementById('btn-info'),
-            btnCloseInfo: document.getElementById('btn-close-info')
+            btnCloseInfo: document.getElementById('btn-close-info'),
+            systemPromptInput: document.getElementById('system-prompt-input'),
+            btnResetSystemPrompt: document.getElementById('btn-reset-system-prompt'),
+            btnDownloadChat: document.getElementById('btn-download-chat'),
+            filePreviewModal: document.getElementById('file-preview-modal'),
+            filePreviewPanel: document.getElementById('file-preview-panel'),
+            filePreviewName: document.getElementById('file-preview-name'),
+            filePreviewFrame: document.getElementById('file-preview-frame'),
+            btnCloseFilePreview: document.getElementById('btn-close-file-preview'),
+            btnDownloadPreviewedFile: document.getElementById('btn-download-previewed-file'),
+            btnDownloadAll: document.getElementById('btn-download-all'),
+            btnImportAll: document.getElementById('btn-import-all'),
+            importAllInput: document.getElementById('import-all-input')
         };
+
+        DOM.fileInput.setAttribute('accept', FILE_INPUT_ACCEPT);
 
         let appDialogHandlers = null;
 
@@ -815,6 +1235,11 @@
             if (!DOM.infoModal.classList.contains('hidden')) {
                 e.preventDefault();
                 closeInfoModal();
+                return;
+            }
+            if (!DOM.filePreviewModal.classList.contains('hidden')) {
+                e.preventDefault();
+                closeFilePreview();
             }
         });
 
@@ -838,6 +1263,326 @@
             DOM.infoModal.classList.add('hidden');
             DOM.infoModal.setAttribute('aria-hidden', 'true');
         };
+
+        let currentPreviewUrl = null;
+        let currentPreviewSource = null;
+
+        const triggerBlobDownload = (blob, filename) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        };
+
+        const downloadSourceFile = (source) => {
+            if (!source?.blob) return;
+            triggerBlobDownload(source.blob, source.name || 'download');
+        };
+
+        // Explicit color-scheme + opaque background: without this, browsers in a dark
+        // OS/UA preference force-invert unstyled document text to white while leaving
+        // the document background transparent, so it shows white-on-white against the
+        // iframe's own white box background.
+        const PREVIEW_DOC_HEAD = '<meta charset="utf-8"><meta name="color-scheme" content="light">';
+        const DOCX_PREVIEW_STYLE = 'html{color-scheme:light}body{background:#fff;font:14px/1.6 system-ui,-apple-system,sans-serif;color:#18181b;max-width:760px;margin:0 auto;padding:32px 24px}img{max-width:100%}';
+        // The `pre` tag needs its own rule: the browser's built-in stylesheet sets
+        // `white-space: pre` directly on that element, which wins over anything the
+        // parent `body` declares, so wrapping has to be set on `pre` itself.
+        const TEXT_PREVIEW_STYLE = 'html{color-scheme:light}body{background:#fff;margin:0;padding:24px;color:#18181b;font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}pre{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}';
+        const DOCX_FALLBACK_STYLE = 'html{color-scheme:light}body{background:#fff;color:#52525b;font:14px system-ui,sans-serif;padding:24px}';
+
+        const injectLightColorScheme = (rawHtml) => {
+            try {
+                const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
+                if (!doc.head.querySelector('meta[name="color-scheme"]')) {
+                    const meta = doc.createElement('meta');
+                    meta.setAttribute('name', 'color-scheme');
+                    meta.setAttribute('content', 'light');
+                    doc.head.prepend(meta);
+                }
+                if (!doc.body.style.backgroundColor) doc.body.style.backgroundColor = '#fff';
+                return '<!doctype html>' + doc.documentElement.outerHTML;
+            } catch (_) {
+                return rawHtml;
+            }
+        };
+
+        const openFilePreview = async (source) => {
+            if (!source?.blob) return;
+            closeAllSlimSelects();
+            currentPreviewSource = source;
+            if (currentPreviewUrl) {
+                URL.revokeObjectURL(currentPreviewUrl);
+                currentPreviewUrl = null;
+            }
+            DOM.filePreviewFrame.removeAttribute('srcdoc');
+            DOM.filePreviewFrame.src = 'about:blank';
+            DOM.filePreviewName.textContent = source.name;
+            DOM.filePreviewModal.classList.remove('hidden');
+            DOM.filePreviewModal.setAttribute('aria-hidden', 'false');
+            lucide.createIcons();
+            requestAnimationFrame(() => DOM.btnCloseFilePreview?.focus());
+
+            const kind = resolveFileKindForDisplay(source.name);
+
+            if (kind === 'pdf') {
+                DOM.filePreviewFrame.removeAttribute('sandbox');
+                currentPreviewUrl = URL.createObjectURL(source.blob);
+                DOM.filePreviewFrame.src = currentPreviewUrl;
+                return;
+            }
+
+            DOM.filePreviewFrame.setAttribute('sandbox', '');
+
+            if (kind === 'html') {
+                const rawHtml = await source.blob.text();
+                DOM.filePreviewFrame.srcdoc = injectLightColorScheme(rawHtml);
+                return;
+            }
+
+            if (kind === 'docx') {
+                try {
+                    const mammoth = await loadMammoth();
+                    const buf = await source.blob.arrayBuffer();
+                    const { value: bodyHtml } = await mammoth.convertToHtml({ arrayBuffer: buf });
+                    if (currentPreviewSource !== source) return;
+                    DOM.filePreviewFrame.srcdoc = `<!doctype html><html><head>${PREVIEW_DOC_HEAD}<style>${DOCX_PREVIEW_STYLE}</style></head><body>${bodyHtml}</body></html>`;
+                } catch (_) {
+                    if (currentPreviewSource !== source) return;
+                    DOM.filePreviewFrame.srcdoc = `<!doctype html><html><head>${PREVIEW_DOC_HEAD}<style>${DOCX_FALLBACK_STYLE}</style></head><body>Preview isn't available for this DOCX file. Use Download to open it in a word processor.</body></html>`;
+                }
+                return;
+            }
+
+            if (kind === 'doc' || kind === 'rtf' || kind === 'epub') {
+                try {
+                    const extracted = kind === 'doc'
+                        ? await extractDocText(source.blob)
+                        : kind === 'rtf'
+                            ? extractRtfText(await source.blob.text())
+                            : await extractEpubText(source.blob);
+                    if (currentPreviewSource !== source) return;
+                    DOM.filePreviewFrame.srcdoc = `<!doctype html><html><head>${PREVIEW_DOC_HEAD}<style>${TEXT_PREVIEW_STYLE}</style></head><body><pre>${escHtml(extracted)}</pre></body></html>`;
+                } catch (_) {
+                    if (currentPreviewSource !== source) return;
+                    DOM.filePreviewFrame.srcdoc = `<!doctype html><html><head>${PREVIEW_DOC_HEAD}<style>${DOCX_FALLBACK_STYLE}</style></head><body>Preview isn't available for this file. Use Download to open it in its native application.</body></html>`;
+                }
+                return;
+            }
+
+            const rawText = await source.blob.text();
+            DOM.filePreviewFrame.srcdoc = `<!doctype html><html><head>${PREVIEW_DOC_HEAD}<style>${TEXT_PREVIEW_STYLE}</style></head><body><pre>${escHtml(rawText)}</pre></body></html>`;
+        };
+
+        const closeFilePreview = () => {
+            DOM.filePreviewModal.classList.add('hidden');
+            DOM.filePreviewModal.setAttribute('aria-hidden', 'true');
+            DOM.filePreviewFrame.removeAttribute('srcdoc');
+            DOM.filePreviewFrame.src = 'about:blank';
+            if (currentPreviewUrl) {
+                URL.revokeObjectURL(currentPreviewUrl);
+                currentPreviewUrl = null;
+            }
+            currentPreviewSource = null;
+        };
+
+        DOM.btnCloseFilePreview.addEventListener('click', () => closeFilePreview());
+        DOM.filePreviewModal.addEventListener('click', (e) => {
+            if (e.target === DOM.filePreviewModal) closeFilePreview();
+        });
+        DOM.filePreviewPanel.addEventListener('click', (e) => e.stopPropagation());
+        DOM.btnDownloadPreviewedFile.addEventListener('click', () => {
+            if (currentPreviewSource) downloadSourceFile(currentPreviewSource);
+        });
+
+        const buildChatExportText = (history) => {
+            const stamp = (ts) => {
+                try { return new Date(ts).toISOString(); } catch (_) { return ''; }
+            };
+            const lines = ['# BrowserLM chat export', ''];
+            history.forEach((msg) => {
+                const who = msg.role === 'user' ? 'User' : 'Assistant';
+                lines.push(`## ${who}${msg.timestamp ? ` — ${stamp(msg.timestamp)}` : ''}`, '', msg.content || '', '');
+            });
+            return lines.join('\n');
+        };
+
+        const downloadChatHistory = async () => {
+            const history = await dbOp('chat', 'getAll');
+            if (!history.length) {
+                await showAppAlert('There is no chat history to download yet.');
+                return;
+            }
+            const text = buildChatExportText(history);
+            const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            triggerBlobDownload(blob, `browserlm-chat-${ts}.md`);
+        };
+
+        DOM.btnDownloadChat.addEventListener('click', () => downloadChatHistory());
+
+        const sanitizeArchiveFilename = (name) => String(name || 'file').replace(/[\\/:*?"<>|]/g, '_');
+
+        const buildArchiveManifest = () => ({
+            app: 'BrowserLM',
+            version: 1,
+            exportedAt: new Date().toISOString(),
+            generatorModel: State.generatorKey,
+            generatorLabel: GEN_MODELS[State.generatorKey]?.label || null,
+            embedderModel: State.embedderKey,
+            embedderLabel: EMB_MODELS[State.embedderKey]?.label || null,
+            systemPrompt: State.customSystemPrompt || ''
+        });
+
+        const downloadFullArchive = async () => {
+            let fflate;
+            try {
+                fflate = await loadFflate();
+            } catch (_) {
+                await showAppAlert('The archive library failed to load. Check your internet connection and try again.');
+                return;
+            }
+            const { zipSync, strToU8 } = fflate;
+
+            const [sources, chunks, chat] = await Promise.all([
+                dbOp('sources', 'getAll'),
+                dbOp('chunks', 'getAll'),
+                dbOp('chat', 'getAll'),
+            ]);
+
+            const files = {};
+            const usedNames = new Set();
+            const sourcesMeta = [];
+
+            for (const s of sources) {
+                let fileEntry = null;
+                if (s.blob) {
+                    const base = sanitizeArchiveFilename(s.name);
+                    const candidate = usedNames.has(base) ? `${s.id}-${base}` : base;
+                    usedNames.add(candidate);
+                    fileEntry = `files/${candidate}`;
+                    files[fileEntry] = new Uint8Array(await s.blob.arrayBuffer());
+                }
+                sourcesMeta.push({
+                    id: s.id,
+                    name: s.name,
+                    mimeType: s.mimeType || null,
+                    size: s.size || null,
+                    charLength: s.charLength,
+                    chunkCount: s.chunkCount,
+                    addedAt: s.addedAt,
+                    file: fileEntry
+                });
+            }
+
+            const chunksMeta = chunks.map((c) => ({ sourceId: c.sourceId, text: c.text, embedding: c.embedding }));
+            const chatMeta = chat.map((m) => ({ role: m.role, content: m.content, isHtml: Boolean(m.isHtml), timestamp: m.timestamp || null }));
+
+            files['manifest.json'] = strToU8(JSON.stringify(buildArchiveManifest(), null, 2));
+            files['sources.json'] = strToU8(JSON.stringify(sourcesMeta, null, 2));
+            files['chunks.json'] = strToU8(JSON.stringify(chunksMeta, null, 2));
+            files['chat.json'] = strToU8(JSON.stringify(chatMeta, null, 2));
+            files['chat.md'] = strToU8(buildChatExportText(chat));
+
+            const zipped = zipSync(files, { level: 6 });
+            const ts = new Date().toISOString().replace(/[:.]/g, '-');
+            triggerBlobDownload(new Blob([zipped], { type: 'application/zip' }), `browserlm-backup-${ts}.zip`);
+        };
+
+        const importFullArchive = async (file) => {
+            let fflate;
+            try {
+                fflate = await loadFflate();
+            } catch (_) {
+                await showAppAlert('The archive library failed to load. Check your internet connection and try again.');
+                return;
+            }
+            const { unzipSync, strFromU8 } = fflate;
+
+            let entries;
+            try {
+                const buf = new Uint8Array(await file.arrayBuffer());
+                entries = unzipSync(buf);
+            } catch (_) {
+                await showAppAlert("This file couldn't be read as a BrowserLM backup — it may not be a valid .zip archive.", 'Import failed');
+                return;
+            }
+
+            const readJson = (path, fallback) => {
+                if (!entries[path]) return fallback;
+                try { return JSON.parse(strFromU8(entries[path])); } catch (_) { return fallback; }
+            };
+
+            const manifest = readJson('manifest.json', null);
+            if (!manifest || manifest.app !== 'BrowserLM') {
+                await showAppAlert("This doesn't look like a BrowserLM backup archive.", 'Import failed');
+                return;
+            }
+
+            const sourcesMeta = readJson('sources.json', []);
+            const chunksMeta = readJson('chunks.json', []);
+            const chatMeta = readJson('chat.json', []);
+
+            const modelLine = manifest.generatorLabel
+                ? `Made with "${manifest.generatorLabel}" / "${manifest.embedderLabel || 'unknown embedder'}".\n\n`
+                : '';
+            const summary = `This backup has ${sourcesMeta.length} document${sourcesMeta.length === 1 ? '' : 's'} and ${chatMeta.length} chat message${chatMeta.length === 1 ? '' : 's'}. ${modelLine}Importing adds this to your current data — it won't replace or delete anything. Continue?`;
+            if (!(await showAppConfirm(summary, 'Import backup', { confirmLabel: 'Import' }))) return;
+
+            const idMap = new Map();
+            for (const s of sourcesMeta) {
+                let blob = null;
+                if (s.file && entries[s.file]) {
+                    blob = new Blob([entries[s.file]], { type: s.mimeType || guessMimeType(s.name) });
+                }
+                const newId = await dbOp('sources', 'add', {
+                    name: s.name,
+                    mimeType: s.mimeType || guessMimeType(s.name),
+                    size: blob ? blob.size : (s.size || 0),
+                    ...(blob ? { blob } : {}),
+                    charLength: s.charLength || 0,
+                    chunkCount: s.chunkCount || 0,
+                    addedAt: s.addedAt || Date.now()
+                });
+                idMap.set(s.id, newId);
+            }
+
+            for (const c of chunksMeta) {
+                const mappedId = idMap.get(c.sourceId);
+                if (mappedId == null) continue;
+                await dbOp('chunks', 'add', { sourceId: mappedId, text: c.text, embedding: c.embedding });
+            }
+
+            for (const m of chatMeta) {
+                const newChatId = await dbOp('chat', 'add', { role: m.role, content: m.content, isHtml: Boolean(m.isHtml), timestamp: m.timestamp || Date.now() });
+                await appendMessage(m.role, m.content, Boolean(m.isHtml), false, { chatDbId: newChatId });
+            }
+
+            if (manifest.systemPrompt) {
+                State.customSystemPrompt = manifest.systemPrompt;
+                DOM.systemPromptInput.value = manifest.systemPrompt;
+                localStorage.setItem(LS_SYSTEM_PROMPT_KEY, manifest.systemPrompt);
+            }
+
+            await renderSources();
+            await showAppAlert(
+                `Imported ${sourcesMeta.length} document(s) and ${chatMeta.length} chat message(s).${manifest.generatorLabel ? ` This backup used ${manifest.generatorLabel} / ${manifest.embedderLabel || 'an unknown embedder'} — switch your model dropdowns to match if needed.` : ''}`,
+                'Import complete'
+            );
+        };
+
+        DOM.btnDownloadAll.addEventListener('click', () => downloadFullArchive());
+        DOM.btnImportAll.addEventListener('click', () => DOM.importAllInput.click());
+        DOM.importAllInput.addEventListener('change', async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            await importFullArchive(file);
+        });
 
         DOM.sourcesList?.addEventListener('scroll', closeAllSlimSelects, { passive: true });
         document.getElementById('sidebar-settings')?.addEventListener('scroll', closeAllSlimSelects, { passive: true });
@@ -1085,8 +1830,8 @@
             const wrap = document.createElement('div');
             wrap.setAttribute('tabindex', '0');
             wrap.className = role === 'user'
-                ? 'chat-msg-wrap group flex flex-col w-full animate-fade-in-up items-end gap-1 outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 rounded-lg'
-                : 'chat-msg-wrap group flex flex-col w-full animate-fade-in-up gap-1 outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 rounded-lg';
+                ? 'chat-msg-wrap max-w-4xl mx-auto group flex flex-col w-full animate-fade-in-up items-end gap-1 outline-none rounded-lg'
+                : 'chat-msg-wrap max-w-4xl mx-auto group flex flex-col w-full animate-fade-in-up gap-1 outline-none rounded-lg';
 
             let bubbleHtml = '';
             if (role === 'user') {
@@ -1200,7 +1945,11 @@
         });
 
         const CACHE_ICON_SVG = `<svg class="ss-opt-icon  w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>`;
-        const CACHE_ICON_PH = `<span class="ss-opt-icon-ph  w-5" aria-hidden="true"></span>`;
+        // Empty on purpose: SlimSelect renders this same `html` for both the dropdown
+        // list AND the closed/selected value box. A fixed-width placeholder span here
+        // would leave a permanent empty gutter in front of every not-yet-cached model
+        // (i.e. almost every model, for a fresh install) instead of just aligning list rows.
+        const CACHE_ICON_PH = '';
 
         const updateMessage = (id, text, tokens, tps, isFinal = false) => {
             const el = document.getElementById(id);
@@ -1354,30 +2103,30 @@
             const { genCached, embCached } = getCachedModelKeys();
 
             const row = (kind, key, label, active) => `
-                <div class="flex items-center justify-between gap-2 py-1 border-b border-zinc-800/60 last:border-0">
-                    <span class="text-zinc-400 truncate min-w-0" title="${escHtml(label)}">${escHtml(label)}${active ? ' · active' : ''}</span>
-                    <button type="button" class="shrink-0 px-2 py-0.5 rounded-md border border-zinc-600 text-[10px] text-zinc-400 hover:bg-red-950/40 hover:border-red-800 hover:text-red-300 transition-colors"
+                <div class="flex items-center justify-between gap-2 bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2">
+                    <span class="text-zinc-300 truncate min-w-0" title="${escHtml(label)}">
+                        ${escHtml(label)}${active ? ' <span class="text-emerald-400">· active</span>' : ''}
+                    </span>
+                    <button type="button" class="shrink-0 px-2 py-1 rounded-md border border-zinc-700 text-[10px] text-zinc-400 hover:bg-red-950/40 hover:border-red-800 hover:text-red-300 transition-colors"
                         data-cache-del="${kind}" data-cache-key="${key}">Delete</button>
                 </div>`;
 
-            let html = '';
-            if (genCached.length) {
-                html += `<div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wide mt-4  mb-1">LLM Cache</div>`;
-                genCached.forEach((key) => {
-                    const spec = GEN_MODELS[key];
-                    html += row('gen', key, spec.label, State.isReady && key === State.generatorKey);
-                });
-            }
-            if (embCached.length) {
-                html += `<div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wide mt-4 mb-1">Embeddings Cache</div>`;
-                embCached.forEach((key) => {
-                    const spec = EMB_MODELS[key];
-                    html += row('emb', key, spec.label, State.isReady && key === State.embedderKey);
-                });
-            }
-            if (!html) {
-                html = '<p class="text-[11px] font-medium text-zinc-600 py-1">No cached model files yet (or cache API unavailable).</p>';
-            }
+            const group = (title, keys, kind, modelsMap, activeKey) => !keys.length ? '' : `
+                <div>
+                    <div class="text-[11px] font-medium text-zinc-500 uppercase tracking-wide mb-2">${title}</div>
+                    <div class="space-y-1.5">
+                        ${keys.map((key) => row(kind, key, modelsMap[key].label, State.isReady && key === activeKey)).join('')}
+                    </div>
+                </div>`;
+
+            const groups = [
+                group('LLM cache', genCached, 'gen', GEN_MODELS, State.generatorKey),
+                group('Embeddings cache', embCached, 'emb', EMB_MODELS, State.embedderKey)
+            ].filter(Boolean);
+
+            const html = groups.length
+                ? `<div class="space-y-4">${groups.join('')}</div>`
+                : '<p class="text-[11px] font-medium text-zinc-500 py-1">No cached model files yet (or cache API unavailable).</p>';
             DOM.cacheModelsPanel.innerHTML = html;
             lucide.createIcons();
         };
@@ -1753,14 +2502,33 @@
                 setDocProg(0, 'Preparing…', null);
 
                 try {
+                    const kind = classifyFileForUpload(file.name);
+                    if (!kind) {
+                        throw new FileProcessError('UNSUPPORTED_TYPE', getFileExtension(file.name));
+                    }
+                    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                        throw new FileProcessError('FILE_TOO_LARGE', formatBytes(file.size));
+                    }
+
                     let text = "";
-                    if (file.name.toLowerCase().endsWith(".pdf")) {
-                        const pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs");
+                    if (kind === 'pdf') {
+                        let pdfjsLib;
+                        try {
+                            pdfjsLib = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs");
+                        } catch (_) {
+                            throw new FileProcessError('PDF_LIB_LOAD_FAILED');
+                        }
                         pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
                         setDocProg(0, 'Reading file into memory…', null);
                         const buf = await file.arrayBuffer();
                         setDocProg(0, 'Parsing PDF…', null);
-                        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                        let pdf;
+                        try {
+                            pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                        } catch (pdfErr) {
+                            if (pdfErr?.name === 'PasswordException') throw new FileProcessError('PDF_ENCRYPTED');
+                            throw new FileProcessError('PDF_CORRUPTED');
+                        }
                         const pdfReadT0 = performance.now();
                         for (let p = 1; p <= pdf.numPages; p++) {
                             const page = await pdf.getPage(p);
@@ -1777,17 +2545,35 @@
                             } else if (p >= pdf.numPages) eta = 0;
                             setDocProg(overall, `Page ${p} / ${pdf.numPages}`, eta);
                         }
+                    } else if (kind === 'docx') {
+                        setDocProg(0, 'Reading DOCX…', null);
+                        text = await extractDocxText(file);
+                        setDocProg(DOC_READ_SHARE, 'Text extracted', null);
+                    } else if (kind === 'doc') {
+                        setDocProg(0, 'Reading DOC…', null);
+                        text = await extractDocText(file);
+                        setDocProg(DOC_READ_SHARE, 'Text extracted', null);
+                    } else if (kind === 'rtf') {
+                        const raw = await readFileAsText(file);
+                        text = extractRtfText(raw);
+                        setDocProg(DOC_READ_SHARE, 'Text extracted', null);
+                    } else if (kind === 'epub') {
+                        setDocProg(0, 'Reading EPUB…', null);
+                        text = await extractEpubText(file);
+                        setDocProg(DOC_READ_SHARE, 'Text extracted', null);
+                    } else if (kind === 'html') {
+                        const raw = await readFileAsText(file);
+                        text = extractHtmlText(raw);
+                        setDocProg(DOC_READ_SHARE, 'Text extracted', null);
                     } else {
-                        text = await new Promise((res, rej) => {
-                            const r = new FileReader();
-                            r.onload = () => res(r.result);
-                            r.onerror = () => rej(r.error);
-                            r.readAsText(file);
-                        });
+                        text = await readFileAsText(file);
                         setDocProg(DOC_READ_SHARE, 'Text read', null);
                     }
 
-                    if (text.trim().length < 40) throw new Error("Too little text.");
+                    text = cleanExtractedText(text);
+                    if (text.trim().length < 40) {
+                        throw new FileProcessError(kind === 'pdf' ? 'PDF_NO_TEXT' : 'EMPTY_TEXT');
+                    }
 
                     const parts = [];
                     const size = 600, overlap = 150;
@@ -1797,7 +2583,13 @@
                     const validParts = parts.filter(p => p.length > 20);
 
                     const sourceId = await dbOp("sources", "add", {
-                        name: file.name, charLength: text.length, chunkCount: validParts.length, addedAt: Date.now()
+                        name: file.name,
+                        mimeType: file.type || guessMimeType(file.name),
+                        size: file.size,
+                        blob: file,
+                        charLength: text.length,
+                        chunkCount: validParts.length,
+                        addedAt: Date.now()
                     });
 
                     DOM.progLabel.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin text-blue-400 shrink-0"></i><span class="truncate">Embedding: ${safeName}</span>`;
@@ -1832,7 +2624,7 @@
                 } catch (e) {
                     console.error(e);
                     hasErrors = true;
-                    await appendMessage('assistant', `⚠️ Failed to process **${file.name}**: ${e.message}`, false);
+                    await appendMessage('assistant', `**Couldn't add \`${file.name}\`:** ${formatFileProcessError(e)}`, false);
                 }
             }
 
@@ -1923,13 +2715,15 @@
                     }
 
                     const contextStr = contextLines.length ? contextLines.map((t,i) => `[${i+1}] ${t}`).join("\n\n") : "There is no information in the documents for this query.";
+                    const sysPrompt = State.customSystemPrompt.trim() || DEFAULT_SYSTEM_PROMPT_RAG;
                     messages = [
-                        { role: "system", content: "You are a helpful assistant. Answer in English based only on the provided CONTEXT. If the information is not in the context, say so clearly." },
+                        { role: "system", content: sysPrompt },
                         { role: "user", content: `CONTEXT:\n${contextStr}\n\nQUESTION:\n${query}` }
                     ];
                 } else {
+                    const sysPrompt = State.customSystemPrompt.trim() || DEFAULT_SYSTEM_PROMPT_PLAIN;
                     messages = [
-                        { role: "system", content: "You are a helpful assistant. Answer in English, clearly and to the point. If you are unsure about facts or lack context, say so. Do not invent specific citations, laws, or exact dates unless they appeared in the user's message." },
+                        { role: "system", content: sysPrompt },
                         { role: "user", content: query }
                     ];
                 }
@@ -2020,7 +2814,7 @@
                 console.error(e);
                 await appendMessage(
                     'assistant',
-                    '❌ Generation error: ' + formatInferenceGpuError(e),
+                    '**Generation error:** ' + formatInferenceGpuError(e),
                     false,
                 );
                 setStatus('Error', 'err');
@@ -2048,6 +2842,10 @@
             }
 
             sources.forEach(s => {
+                const hasFile = Boolean(s.blob);
+                const fileActionCls = hasFile
+                    ? 'p-1.5 text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-md transition-all shrink-0'
+                    : 'p-1.5 text-zinc-500 rounded-md shrink-0 cursor-not-allowed';
                 const el = document.createElement('div');
                 el.className = "group flex items-center gap-3 p-3 rounded-xl bg-zinc-800/40 hover:bg-zinc-800 border border-zinc-700/50 transition-colors";
                 el.innerHTML = `
@@ -2055,23 +2853,32 @@
                         <i data-lucide="file-text" class="w-4 h-4"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="text-sm font-medium text-zinc-200 truncate" title="${s.name}">${s.name}</div>
-                        <div class="text-[10px] text-zinc-500">${s.chunkCount} chunk${s.chunkCount === 1 ? '' : 's'} · ${(s.charLength/1024).toFixed(1)} KB</div>
+                        <div class="text-sm font-medium text-zinc-200 truncate" title="${escHtml(s.name)}">${escHtml(s.name)}</div>
+                        <div class="text-[10px] text-zinc-500">${s.chunkCount} chunk${s.chunkCount === 1 ? '' : 's'} · ${(s.charLength/1024).toFixed(1)} KB${hasFile ? '' : ' · original file not stored'}</div>
                     </div>
-                    <button class="btn-del-src opacity-0 group-hover:opacity-100 p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all shrink-0" data-id="${s.id}" title="Delete">
-                        <i data-lucide="trash" class="w-4 h-4"></i>
-                    </button>
+                    <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <button class="btn-preview-src ${fileActionCls}" ${hasFile ? '' : 'disabled'} title="${hasFile ? 'Preview' : 'Original file not stored for this upload — re-upload to enable preview'}">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                        <button class="btn-download-src ${fileActionCls}" ${hasFile ? '' : 'disabled'} title="${hasFile ? 'Download' : 'Original file not stored for this upload — re-upload to enable download'}">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                        </button>
+                        <button class="btn-del-src p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all shrink-0" data-id="${s.id}" title="Delete">
+                            <i data-lucide="trash" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 `;
-                DOM.sourcesList.appendChild(el);
-            });
-            lucide.createIcons();
-            
-            document.querySelectorAll('.btn-del-src').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
+                if (hasFile) {
+                    el.querySelector('.btn-preview-src').addEventListener('click', () => openFilePreview(s));
+                    el.querySelector('.btn-download-src').addEventListener('click', () => downloadSourceFile(s));
+                }
+                el.querySelector('.btn-del-src').addEventListener('click', async (e) => {
                     await dbDeleteSource(Number(e.currentTarget.dataset.id));
                     renderSources();
                 });
+                DOM.sourcesList.appendChild(el);
             });
+            lucide.createIcons();
         };
 
         const toggleSidebar = (force) => {
@@ -2199,6 +3006,18 @@
                 console.error(err);
                 await showAppAlert('Failed to remove cache: ' + (err?.message || String(err)), 'Error');
             }
+        });
+
+        DOM.systemPromptInput.value = State.customSystemPrompt;
+        DOM.systemPromptInput.addEventListener('input', (e) => {
+            State.customSystemPrompt = e.target.value;
+            localStorage.setItem(LS_SYSTEM_PROMPT_KEY, State.customSystemPrompt);
+        });
+        DOM.btnResetSystemPrompt.addEventListener('click', () => {
+            State.customSystemPrompt = '';
+            DOM.systemPromptInput.value = '';
+            localStorage.removeItem(LS_SYSTEM_PROMPT_KEY);
+            DOM.systemPromptInput.focus();
         });
 
         DOM.setupModelSelect.addEventListener('change', updateSetupEstimate);

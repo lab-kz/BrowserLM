@@ -30,7 +30,11 @@
 ## Features
 
 - **Chat** — general instruction following with streaming-style token updates.
-- **RAG** — upload **TXT, Markdown, CSV, JSON, PDF**; semantic search over chunks; answers grounded in retrieved context.
+- **RAG** — upload **TXT, Markdown, CSV, TSV, JSON, XML, YAML, INI, log, HTML, PDF, DOC, DOCX, RTF, EPUB** (max 30 MB/file); semantic search over chunks; answers grounded in retrieved context. Scanned/image-only PDFs have no text layer and can't be indexed — BrowserLM doesn't include OCR. Legacy `.doc` uses a best-effort heuristic extractor (no full binary-format parser) — re-save as `.docx` or PDF if extraction quality is poor.
+- **File preview & download** — open any indexed source in a preview panel (PDF viewer, rendered HTML/DOCX, or plain text) or download the original file back out.
+- **Chat export** — download the full conversation as a Markdown file.
+- **Full backup / import** — "Download all" zips chat, documents (with original files and embeddings), the system prompt, and the active model choice into one `.zip`. "Import" merges a backup back in — it never deletes or overwrites existing data.
+- **Custom system prompt** — override the assistant's default behavior from the sidebar; persisted in `localStorage`.
 - **Vision-language (VL) LLMs** — optional models combine **text + images** in the chat pipeline; they require **WebGPU** (text-only models still run on WASM without WebGPU).
 - **Progress UX** — download progress, ETA hints, cancelable model loads (fetch patched with `AbortSignal`).
 - **Welcome setup** — estimated download size, optional **hardware acceleration / WebGPU** status before loading weights.
@@ -99,7 +103,7 @@ flowchart LR
 3. **Generation (text LLMs)** — `text-generation` pipeline with optional chat template; context injected for RAG turns.
 4. **Generation (VL models)** — vision+text checkpoints use a dedicated processor and **WebGPU**-only session; document RAG still relies on the text embedding model for chunk vectors.
 
-PDF text is extracted in-browser with **pdf.js** (loaded from CDN when you import a PDF).
+PDF text is extracted in-browser with **pdf.js**; DOCX with **mammoth.js**; legacy DOC with **cfb** (compound-file parsing plus a heuristic text scan); EPUB with **fflate** (unzip + chapter extraction) — all loaded from CDN on first use of that file type. HTML and RTF are parsed and stripped to plain text before indexing.
 
 ---
 
@@ -121,7 +125,7 @@ Exact IDs, labels, and approximate sizes are defined in `index.html` (`GEN_MODEL
 
 - No account, no telemetry endpoint in this template.
 - Files and embeddings never leave your browser by design.
-- Third-party CDNs are used for **libraries** (Tailwind, Lucide, Marked, DOMPurify, Slim Select, pdf.js, `esm.sh` for Transformers). Audit those URLs if you need an air‑gapped build (self-host assets and swap the module URL).
+- Third-party CDNs are used for **libraries** (Tailwind, Lucide, Marked, DOMPurify, Slim Select, pdf.js, mammoth.js, cfb, fflate, `esm.sh` for Transformers). Audit those URLs if you need an air‑gapped build (self-host assets and swap the module URL).
 - The service worker only caches **same-origin** shell files (`index.html`, manifest, favicon) — it does not proxy your documents or model blobs to a remote server.
 
 ---
